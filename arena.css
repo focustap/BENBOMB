@@ -1,0 +1,49 @@
+/* BENBOMB's multiplayer-first hot-potato arena. Every player's seat is on an orbit around the bomb. */
+.arena{position:relative;isolation:isolate;width:min(940px,100%);height:560px;margin:0 auto;overflow:visible}
+.arena:before{content:"";position:absolute;inset:8% 16%;border:1px dashed #a9668a35;border-radius:50%;pointer-events:none}
+.arena .player-strip{position:absolute;inset:0;display:block;margin:0;z-index:5;pointer-events:none}
+.arena .player-card{position:absolute;left:var(--seat-x);top:var(--seat-y);transform:translate(-50%,-50%);width:135px;min-width:0;flex:none;z-index:5;pointer-events:auto;text-align:center;box-shadow:0 6px 22px #0006;transition:border .15s,background .15s,box-shadow .15s,opacity .15s}
+.arena .player-card.active{border-color:#ff608b;box-shadow:0 0 0 2px #ff4f8450,0 0 24px #ff4f8440;background:#3a233c}
+.arena .player-card.active:before{display:none}
+.arena .player-card.active:after{content:"HOLDING BOMB";display:block;margin-top:7px;color:#ffc4cf;font-size:8px;letter-spacing:1px;font-weight:900}
+.arena .player-card.eliminated{filter:grayscale(1);opacity:.42}
+.arena .bomb-stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:0;width:310px;z-index:3}
+.arena .bomb-stage:before{top:0;width:450px}
+.arena .prompt-help{margin-bottom:23px}
+.arena .bomb{width:235px;height:235px}
+.arena .bomb-prompt{font-size:clamp(51px,6.8vw,83px)}
+.arena .timer-track{width:270px;margin-top:19px}
+.arena .timer-label{font-size:24px;margin-top:5px}
+.arena .fuse-flame{top:-38px}
+.turn-pointer{position:absolute;inset:0;z-index:2;pointer-events:none;transform:rotate(var(--pointer-angle,0deg));transition:transform .23s ease-in-out}
+.turn-pointer:before{content:"";position:absolute;top:16%;left:calc(50% - 2px);height:15%;width:4px;border-radius:4px;background:linear-gradient(#ffb4d3,#ff5f8b00);filter:drop-shadow(0 0 8px #ff578c)}
+.turn-pointer:after{content:"▲";position:absolute;top:12%;left:50%;transform:translateX(-50%);font-size:28px;color:#ff5f9a;text-shadow:0 0 18px #ff4f84}
+.arena.solo-arena .player-card{width:150px}
+.arena.solo-arena .player-card.active:after{content:"SOLO SURVIVAL"}
+.arena .bomb-stage .timer-label:after{content:"  •  CONTINUOUS FUSE";display:inline;font-family:'DM Sans',system-ui,sans-serif;font-size:9px;font-weight:800;letter-spacing:1px;color:#9390aa}
+.game-view .typing-area{margin-top:-4px;position:relative;z-index:8}
+@media(max-width:700px){
+ .arena{height:450px}
+ .arena:before{inset:13% 12%}
+ .arena .player-card{width:100px;padding:7px 6px}
+ .arena .player-card-name{font-size:9px}
+ .arena .player-card-hearts{font-size:10px;margin:2px 0}
+ .arena .player-card-score{font-size:8px}
+ .arena .player-card.active:after{font-size:7px;margin-top:3px}
+ .arena .bomb-stage{width:235px;top:50%}
+ .arena .bomb{width:165px;height:165px}
+ .arena .bomb-prompt{font-size:57px}
+ .arena .prompt-help{font-size:8px;letter-spacing:1px;margin-bottom:20px}
+ .arena .timer-track{width:200px}
+ .arena .timer-label{font-size:22px}
+ .turn-pointer:before{top:20%;height:13%}
+ .turn-pointer:after{top:15%;font-size:20px}
+}
+@media(max-width:400px){
+ .arena{height:440px}
+ .arena .player-card{width:84px;padding:7px 4px}
+ .arena .bomb{width:151px;height:151px}
+ .arena .bomb-prompt{font-size:52px}
+ .arena .timer-track{width:175px}
+ .arena .timer-label:after{display:none!important}
+}
