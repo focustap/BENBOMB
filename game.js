@@ -44,9 +44,10 @@ function randomCode() {
 }
 function choose(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function display(viewName) {
+  const changed = view !== viewName;
   view = viewName;
   VIEWS.forEach(v => $(v + 'View').hidden = v !== viewName);
-  window.scrollTo(0, 0);
+  if (changed) window.scrollTo(0, 0);
 }
 function notify(message) {
   const el = $('toast');
