@@ -7,6 +7,7 @@
   <meta name="description" content="BENBOMB — a fast, multiplayer word bomb game from BenGames.">
   <title>BENBOMB · BenGames</title>
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./arena.css">
   <script src="./config.js"></script>
   <script src="./game.js" defer></script>
 </head>
@@ -33,24 +34,6 @@
       </div>
       <div class="mode-grid">
         <article class="mode-card mode-main">
-          <div class="mode-icon" aria-hidden="true">⚡</div>
-          <div class="mode-label">QUICK PLAY</div>
-          <h2>Solo practice</h2>
-          <p>Beat the fuse. Build your streak. Three lives, no pressure.</p>
-          <label for="soloName">YOUR NICKNAME</label>
-          <input id="soloName" maxlength="18" placeholder="Your name" autocomplete="nickname">
-          <button id="soloButton" class="primary-button" disabled>PLAY SOLO <span>→</span></button>
-        </article>
-        <article class="mode-card">
-          <div class="mode-icon" aria-hidden="true">♟</div>
-          <div class="mode-label">SAME DEVICE</div>
-          <h2>Pass & play</h2>
-          <p>Gather around one keyboard. The bomb jumps between players.</p>
-          <label for="localNames">PLAYER NAMES (COMMA SEPARATED)</label>
-          <input id="localNames" maxlength="160" placeholder="Ben, Trin, Zach">
-          <button id="localButton" class="secondary-button" disabled>START LOCAL GAME <span>→</span></button>
-        </article>
-        <article class="mode-card">
           <div class="mode-icon" aria-hidden="true">◎</div>
           <div class="mode-label">ONLINE MULTIPLAYER</div>
           <h2>Play with friends</h2>
@@ -63,6 +46,24 @@
           </div>
           <button id="hostButton" class="tertiary-button" disabled>+ CREATE A ROOM</button>
           <p class="config-note" id="onlineStatus">Online rooms require a Supabase connection.</p>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon" aria-hidden="true">⚡</div>
+          <div class="mode-label">SOLO CHALLENGE</div>
+          <h2>Solo practice</h2>
+          <p>Keep solving words until the bomb explodes. Three lives to beat your best score.</p>
+          <label for="soloName">YOUR NICKNAME</label>
+          <input id="soloName" maxlength="18" placeholder="Your name" autocomplete="nickname">
+          <button id="soloButton" class="primary-button" disabled>PLAY SOLO <span>→</span></button>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon" aria-hidden="true">♟</div>
+          <div class="mode-label">SAME DEVICE</div>
+          <h2>Pass & play</h2>
+          <p>Pass the bomb around the circle. The fuse keeps burning while you type.</p>
+          <label for="localNames">PLAYER NAMES (COMMA SEPARATED)</label>
+          <input id="localNames" maxlength="160" placeholder="Ben, Trin, Zach">
+          <button id="localButton" class="secondary-button" disabled>START LOCAL GAME <span>→</span></button>
         </article>
       </div>
       <p class="footer-note">Built for fast hands and quicker thinking. <a href="https://github.com/focustap/BENBOMB" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
@@ -92,7 +93,9 @@
         <div class="center-status" id="gameStatus">KEEP THE BOMB MOVING</div>
         <div><span class="overline">WORDS PLAYED</span><strong id="wordCount">00</strong></div>
       </div>
-      <div id="playerStrip" class="player-strip"></div>
+      <div id="arena" class="arena" aria-label="Players around the central bomb">
+        <div id="playerStrip" class="player-strip"></div>
+        <div id="turnPointer" class="turn-pointer" aria-hidden="true"></div>
       <div class="bomb-stage">
         <div id="promptHelp" class="prompt-help">USE THESE LETTERS IN YOUR WORD</div>
         <div class="fuse-flame" aria-hidden="true">✦</div>
@@ -103,6 +106,7 @@
         </div>
         <div class="timer-track"><div id="timerFill" class="timer-fill"></div></div>
         <div id="timerLabel" class="timer-label">10.0s</div>
+      </div>
       </div>
       <div class="typing-area">
         <div class="turn-prompt"><span id="turnLabel">YOUR TURN</span><span id="turnHearts">♥ ♥ ♥</span></div>
