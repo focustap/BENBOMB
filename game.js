@@ -90,7 +90,12 @@ function saveName(name) {
 }
 function configureButtons() {
   const ready = wordSet.size > 0;
-  ['soloButton','localButton','hostButton','joinButton'].forEach(id => $(id).disabled = !ready);
+  const cfg = window.BENBOMB_CONFIG || {};
+  const onlineReady = ready && !!(cfg.url && cfg.publishableKey);
+  $('soloButton').disabled = !ready;
+  $('localButton').disabled = !ready;
+  $('hostButton').disabled = !onlineReady;
+  $('joinButton').disabled = !onlineReady;
 }
 async function loadDictionary() {
   try {
