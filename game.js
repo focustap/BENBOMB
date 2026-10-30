@@ -201,11 +201,15 @@ function submitWord(playerId,rawWord) {
   if (game.recent.length > 6) game.recent.pop();
   player.score++;
   game.passesThisFuse++;
+  // Prevent last-second dumping: only a valid pass with <=3s remaining
+  // refreshes the fuse to 3s for the next player.
+  const latePass=game.deadline-Date.now()<=3000;
+  if(latePass) game.deadline=Date.now()+3000;
   game.turn = nextLivingIndex(game.turn);
   nextWordPrompt();
   broadcastState();
   render();
-  feedback('Nice! ' + word.toUpperCase() + ' accepted. The fuse keeps burning!','ok');
+  feedback('Nice! ' + word.toUpperCase() + (latePass ? ' accepted. Next player gets 3 seconds!' : ' accepted. The fuse keeps burning!'),'ok');
   playSound('success');
   if (session.kind !== 'online' || getTurnPlayer().id === session.id) $('wordInput').focus();
 }
