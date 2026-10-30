@@ -20,7 +20,7 @@ A prompt appears inside the bomb. Type an English word containing those letters 
 
 ## Setup
 
-This is a static site. Publish the repository from the root of `main` with GitHub Pages. All game files remain in **BENBOMB**, not in **BenGames**.
+This is a static site. A deployment workflow is included at `.github/workflows/deploy.yml`. If Pages does not enable automatically, open **Settings → Pages → Build and deployment → Source → GitHub Actions** in the BENBOMB repository. All game files remain in **BENBOMB**, not in **BenGames**.
 
 For local development, use a static server (for example `python -m http.server 8000`) rather than opening `index.html` through `file://`, because the game loads `words.txt` through Fetch.
 
@@ -32,7 +32,7 @@ Set your project's public values in `config.js`. Never put a Supabase secret/ser
 
 This starter implementation uses **Supabase Realtime Broadcast** with a *host-authoritative* browser session, no database tables. The browser hosting the room validates all words and moves turns; the host must stay connected. A 6-character code is for convenience, **not** strong authorization. Channels are public and the prototype is intended for private, friendly games only; before public competitive play, use anonymous auth, private channels with Realtime policies, and server-side answer validation with an Edge Function.
 
-It intentionally does not bind to the unrelated existing Supabase projects automatically. Without `config.js` credentials, online actions show a setup message and Solo/Pass & Play still work.
+It intentionally does not bind to the unrelated existing Supabase projects automatically. Without `config.js` credentials, online room buttons stay disabled; Solo and Pass & Play still work.
 
 ## Dictionary and licensing
 
