@@ -111,7 +111,7 @@ async function loadDictionary() {
   }
 }
 function nextPrompt() {
-  return window.BENBOMB_PROMPTS.choose(game?.used||[],usedPromptHistory,session?.difficulty||'classic');
+  return window.BENBOMB_PROMPTS.choose(game?.used||[],usedPromptHistory,session?.difficulty||'classic',game?.passesThisFuse||0);
 }
 function fuseDuration() {
   const config=SETTINGS[session?.difficulty||'classic'];
@@ -121,6 +121,7 @@ function nextWordPrompt() {
   game.prompt=nextPrompt();
 }
 function newFuse() {
+  game.passesThisFuse=0;
   game.round+=1;
   game.duration=fuseDuration();
   game.deadline=Date.now()+game.duration;
@@ -145,6 +146,7 @@ function beginMatch() {
   game.recent = [];
   game.turn = 0;
   game.round = 0;
+  game.passesThisFuse = 0;
   game.winner = null;
   newFuse();
   broadcastState();
@@ -152,7 +154,7 @@ function beginMatch() {
   playSound('success');
 }
 function makeGame(mode,players) {
-  return {phase: mode === 'online' ? 'lobby' : 'playing',players,turn:0,prompt:'',used:[],recent:[],round:0,duration:0,deadline:0,winner:null};
+  return {phase: mode === 'online' ? 'lobby' : 'playing',players,turn:0,prompt:'',used:[],recent:[],round:0,passesThisFuse:0,duration:0,deadline:0,winner:null};
 }
 function beginOffline(kind) {
   if (!wordSet.size) {notify('The dictionary has not finished loading.');return;}
@@ -198,6 +200,7 @@ function submitWord(playerId,rawWord) {
   game.recent.unshift({name:player.name,word});
   if (game.recent.length > 6) game.recent.pop();
   player.score++;
+  game.passesThisFuse++;
   game.turn = nextLivingIndex(game.turn);
   nextWordPrompt();
   broadcastState();
