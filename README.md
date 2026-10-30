@@ -36,6 +36,10 @@ It intentionally does not bind to the unrelated existing Supabase projects autom
 
 ## Dictionary and licensing
 
-`words.txt` is derived from the 20k list in [first20hours/google-10000-english](https://github.com/first20hours/google-10000-english), with non-alphabetic and very short/long tokens filtered. See [DICTIONARY-LICENSE.md](DICTIONARY-LICENSE.md) for the source notice. The upstream source cautions that it is intended for **personal / educational use** and does not recommend commercial use without LDC licensing. Replace the list with appropriately licensed content before commercial launch.
+`words.txt` is now the user-supplied larger English word list, matching the `words.txt` file from [dwyl/english-words](https://github.com/dwyl/english-words). It contains roughly 466k lines, of which around 415k distinct tokens are usable after case normalization and removal of non-alphabetic or too-short/long tokens.
+
+Examples that are now accepted when matching their bomb prompt: `itch`, `poop`, `boobies`, `puzzle`, `jazz`, and `scratch`.
+
+The file includes uncommon words, names, and unusual variants. BENBOMB's prompt list is curated separately; a word appearing in this file is not necessarily familiar or a perfect dictionary entry. See [DICTIONARY-LICENSE.md](DICTIONARY-LICENSE.md) for source and licensing caveats.
 
 No code or assets from the original Word Bomb or BombParty are used.
