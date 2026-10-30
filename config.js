@@ -1,7 +1,7 @@
-// BENBOMB public browser configuration. Do NOT put service-role/secret keys here.
-// Set these when you have a Supabase project for BenGames multiplayer.
-// Supabase Realtime must be enabled; this prototype uses public Broadcast channels.
+// Shared BenGames Supabase project. Publishable keys are safe to use with browser clients.
+// Never place secret/service-role keys in GitHub Pages code.
 window.BENBOMB_CONFIG = {
-  url: '',
-  publishableKey: ''
+  url: 'https://vtjollddfrxjlhpvoezv.supabase.co',
+  publishableKey: 'sb_publishable_g25G0WN55NpcCHqhpuOAMw_i9h3kEbZ',
+  namespace: 'bengames:benbomb'
 };
