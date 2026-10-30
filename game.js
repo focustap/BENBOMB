@@ -14,6 +14,8 @@ let session = null, game = null, client = null, view = 'menu';
 let raf = null, exploding = false, soundOn = true, audioCtx = null, toastTimer = null;
 let usedPromptHistory = [];
 let onlineConnected = false;
+let onlinePassInFlight = false, onlinePollInFlight = false, matchStartInFlight = false;
+let lastFusePoll = 0;
 
 function escapeHTML(text) {
   return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -120,11 +122,21 @@ function fuseDuration() {
 function nextWordPrompt() {
   game.prompt=nextPrompt();
 }
-function newFuse() {
+async function newFuse() {
   game.passesThisFuse=0;
-  game.round+=1;
-  game.duration=fuseDuration();
-  game.deadline=Date.now()+game.duration;
+  if(session?.kind==='online') {
+    const result=await fuseRequest('start');
+    if(result.status!=='running') throw new Error('Cannot start the server-controlled fuse.');
+    game.round=result.round;
+    game.fuseRevision=result.revision;
+    // No online deadline or duration is ever held or broadcast by the browser.
+    game.deadline=0;
+    game.duration=0;
+  } else {
+    game.round+=1;
+    game.duration=fuseDuration();
+    game.deadline=Date.now()+game.duration;
+  }
   nextWordPrompt();
 }
 function living() {return game.players.filter(p => p.lives > 0);}
@@ -136,22 +148,37 @@ function nextLivingIndex(current) {
   return current;
 }
 function makePlayer(name) {return {id:randomId(),name:name.slice(0,18),lives:3,score:0};}
-function beginMatch() {
-  if (!session || !session.host || !game || game.players.length === 0) return;
+async function beginMatch() {
+  if (!session || !session.host || !game || game.players.length === 0 || matchStartInFlight) return;
   if (session.kind !== 'solo' && game.players.length < 2) {notify('You need at least two players.');return;}
-  usedPromptHistory = [];
-  game.players.forEach(p => {p.lives = 3; p.score = 0;});
-  game.phase = 'playing';
-  game.used = [];
-  game.recent = [];
-  game.turn = 0;
-  game.round = 0;
-  game.passesThisFuse = 0;
-  game.winner = null;
-  newFuse();
-  broadcastState();
-  render();
-  playSound('success');
+  matchStartInFlight=true;
+  const oldPhase=game.phase;
+  try {
+    if(session.kind==='online' && oldPhase==='ended') {
+      const result=await fuseRequest('reset');
+      if(result.status!=='reset') throw new Error('Could not reset server fuse.');
+    }
+    usedPromptHistory = [];
+    game.players.forEach(p => {p.lives = 3; p.score = 0;});
+    game.used = [];
+    game.recent = [];
+    game.turn = 0;
+    game.round = 0;
+    game.passesThisFuse = 0;
+    game.winner = null;
+    await newFuse();
+    game.phase = 'playing';
+    broadcastState();
+    render();
+    playSound('success');
+  } catch(err) {
+    game.phase=oldPhase;
+    render();
+    notify('Server fuse unavailable. Match did not start.');
+    console.error('BENBOMB match start',err);
+  } finally {
+    matchStartInFlight=false;
+  }
 }
 function makeGame(mode,players) {
   return {phase: mode === 'online' ? 'lobby' : 'playing',players,turn:0,prompt:'',used:[],recent:[],round:0,passesThisFuse:0,duration:0,deadline:0,winner:null};
@@ -178,11 +205,11 @@ function canType() {
   if (session.kind !== 'online') return true;
   return !!(getTurnPlayer() && getTurnPlayer().id === session.id);
 }
-function submitWord(playerId,rawWord) {
-  if (!session || !session.host || !game || game.phase !== 'playing' || exploding) return;
+async function submitWord(playerId,rawWord) {
+  if (!session || !session.host || !game || game.phase !== 'playing' || exploding || onlinePassInFlight) return;
   const player = getTurnPlayer();
   if (!player || player.id !== playerId) return;
-  if (Date.now() >= game.deadline) {explode(); return;}
+  if (session.kind!=='online' && Date.now() >= game.deadline) {explode(); return;}
   const word = String(rawWord||'').trim().toLowerCase();
   let reason = '';
   if (!/^[a-z]{3,20}$/.test(word)) reason = 'Use an English word with at least 3 letters.';
@@ -196,20 +223,40 @@ function submitWord(playerId,rawWord) {
     playSound('bad');
     return;
   }
+  // Online: server decides if this attempt arrived before expiry and
+  // privately extends the fuse if <=3 seconds remain. No time is returned.
+  let latePass=false;
+  if(session.kind==='online') {
+    onlinePassInFlight=true;
+    try {
+      const result=await fuseRequest('pass');
+      if(!session || !game || game.phase!=='playing' || exploding) return;
+      if(result.round!==game.round) return;
+      if(result.status==='expired') {explode();return;}
+      if(result.status!=='passed') throw new Error('Pass was not confirmed by server.');
+      game.fuseRevision=result.revision;
+      latePass=!!result.rescued;
+    } catch(err) {
+      console.error('BENBOMB server pass',err);
+      feedback('Cannot reach the fuse server. Word was not passed.','bad');
+      return;
+    } finally {
+      onlinePassInFlight=false;
+    }
+  } else {
+    latePass=game.deadline-Date.now()<=3000;
+    if(latePass) game.deadline=Date.now()+3000;
+  }
   game.used.push(word);
   game.recent.unshift({name:player.name,word});
   if (game.recent.length > 6) game.recent.pop();
   player.score++;
   game.passesThisFuse++;
-  // Prevent last-second dumping: only a valid pass with <=3s remaining
-  // refreshes the fuse to 3s for the next player.
-  const latePass=game.deadline-Date.now()<=3000;
-  if(latePass) game.deadline=Date.now()+3000;
   game.turn = nextLivingIndex(game.turn);
   nextWordPrompt();
   broadcastState();
   render();
-  feedback('Nice! ' + word.toUpperCase() + (latePass ? ' accepted. Next player gets 3 seconds!' : ' accepted. The fuse keeps burning!'),'ok');
+  feedback('Nice! ' + word.toUpperCase() + ' accepted. Bomb passed!','ok');
   playSound('success');
   if (session.kind !== 'online' || getTurnPlayer().id === session.id) $('wordInput').focus();
 }
@@ -220,7 +267,7 @@ function explode() {
   playSound('boom');
   const doomedIndex = game.turn;
   const doomedName = getTurnPlayer().name;
-  setTimeout(() => {
+  setTimeout(async () => {
     if (!game || game.phase !== 'playing') {exploding = false;return;}
     $('bomb').classList.remove('exploding');
     const player = game.players[doomedIndex];
@@ -231,7 +278,14 @@ function explode() {
       game.winner = survivors.length === 1 && session.kind !== 'solo' ? survivors[0].id : null;
     } else {
       game.turn = nextLivingIndex(doomedIndex);
-      newFuse();
+      try {
+        await newFuse();
+      } catch(err) {
+        console.error('BENBOMB next server fuse',err);
+        // An unavailable server must never fall back to a guessable client timer.
+        game.phase='ended';
+        notify('Server fuse unavailable. Match stopped.');
+      }
     }
     exploding = false;
     broadcastState();
@@ -299,14 +353,17 @@ function render() {
 }
 function tick() {
   raf = requestAnimationFrame(tick);
-  if (!game || game.phase !== 'playing' || view !== 'game') return;
-  const remaining = Math.max(0, game.deadline - Date.now());
-  const percent = Math.max(0,Math.min(100,remaining / (game.duration||1)*100));
-  $('timerFill').style.width = percent + '%';
-  $('timerLabel').textContent = (remaining/1000).toFixed(1)+'s';
-  $('bomb').classList.toggle('danger',remaining<2600 && !exploding);
-  $('timerLabel').classList.toggle('danger',remaining<2600);
-  if (remaining===0 && session.host) explode();
+  if (!game || game.phase !== 'playing' || view !== 'game' || exploding) return;
+  if(session.kind==='online') {
+    if(session.host && !onlinePollInFlight && !onlinePassInFlight &&
+       performance.now()-lastFusePoll>650) {
+      lastFusePoll=performance.now();
+      void pollFuse();
+    }
+    return;
+  }
+  // Offline modes keep their internal clock, but never render its value.
+  if(game.deadline<=Date.now() && session.host) explode();
 }
 function broadcast(event,payload) {
   if (!session || !session.channel || !onlineConnected) return;
@@ -314,7 +371,8 @@ function broadcast(event,payload) {
 }
 function broadcastState() {
   if (session && session.kind === 'online' && session.host && game) {
-    broadcast('sync',{hostId:session.id,game});
+    const {deadline,duration,...safeGame}=game;
+    broadcast('sync',{hostId:session.id,game:safeGame});
   }
 }
 function currentName() {
@@ -333,12 +391,51 @@ async function getClient() {
   client = module.createClient(config.url,config.publishableKey,{auth:{persistSession:false,autoRefreshToken:false}});
   return client;
 }
+function makeFuseSecret() {
+  const random=crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(random,byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+async function fuseRequest(action,activeSession=session) {
+  if(!activeSession || !activeSession.host || !activeSession.fuseSecret)
+    throw new Error('Only the host can operate the online fuse.');
+  const cfg=window.BENBOMB_CONFIG||{};
+  const response=await fetch(cfg.url+'/functions/v1/benbomb-fuse',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':cfg.publishableKey},
+    body:JSON.stringify({action,room:activeSession.code,secret:activeSession.fuseSecret,difficulty:activeSession.difficulty}),
+    cache:'no-store'
+  });
+  if(!response.ok) throw new Error('Fuse server returned '+response.status);
+  return await response.json();
+}
+async function pollFuse() {
+  if(!session?.host || session.kind!=='online' || onlinePollInFlight || onlinePassInFlight ||
+     !game || game.phase!=='playing' || exploding) return;
+  const room=session.code;
+  onlinePollInFlight=true;
+  try {
+    const status=await fuseRequest('check');
+    if(!session || !session.host || session.code!==room || !game || game.phase!=='playing' || exploding) return;
+    if(status.round!==game.round || onlinePassInFlight || status.revision<game.fuseRevision) return;
+    if(status.status==='expired') explode();
+    else if(status.status!=='running') console.warn('Unexpected fuse status',status.status);
+  } catch(err) {
+    console.warn('BENBOMB server fuse polling unavailable',err);
+  } finally {
+    onlinePollInFlight=false;
+  }
+}
 async function connectRoom(role,code,nickname) {
   try {
     const sb = await getClient();
     const id = randomId();
-    session = {kind:'online',host:role==='host',id,code,difficulty:'classic',channel:null};
+    session = {kind:'online',host:role==='host',id,code,difficulty:'classic',
+      fuseSecret:role==='host'?makeFuseSecret():null,channel:null};
     game = role === 'host' ? makeGame('online',[{id,name:nickname,lives:3,score:0}]) : null;
+    if(session.host) {
+      const result=await fuseRequest('create');
+      if(result.status!=='created') throw new Error('Room code already in use. Please try again.');
+    }
     const channel = sb.channel('bengames:benbomb:'+code, {config:{broadcast:{self:false,ack:true}}});
     session.channel = channel;
     onlineConnected = false;
@@ -377,7 +474,7 @@ async function connectRoom(role,code,nickname) {
         } else if (game.phase==='playing') {
           const p=game.players.find(p=>p.id===payload.id);
           if (p) {p.lives=0;if (living().length<=1) {game.phase='ended';game.winner=living()[0]?.id||null;}
-          else if (getTurnPlayer()?.lives===0) {game.turn=nextLivingIndex(game.turn);newFuse();}
+          else if (getTurnPlayer()?.lives===0) {game.turn=nextLivingIndex(game.turn);}
           broadcastState();render();}
         }
       })
@@ -414,12 +511,15 @@ async function connectRoom(role,code,nickname) {
   }
 }
 function leaveRoom(sendLeave=true) {
+  if(session?.kind==='online' && session.host && session.fuseSecret)
+    void fuseRequest('close',session).catch(err=>console.warn('Could not close fuse',err));
   if (session && session.kind==='online' && session.channel) {
     if (sendLeave) broadcast(session.host?'closed':'leave',{id:session.id});
     const oldChannel = session.channel;
     setTimeout(()=>{try{client.removeChannel(oldChannel);}catch(_){}},100);
   }
   session=null;game=null;exploding=false;onlineConnected=false;
+  onlinePassInFlight=false;onlinePollInFlight=false;matchStartInFlight=false;
   $('bomb').classList.remove('exploding','danger');
   display('menu');
 }
