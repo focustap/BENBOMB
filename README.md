@@ -4,7 +4,7 @@ A fast, browser-based word bomb game and part of the BenGames collection.
 
 ## Rules
 
-A prompt appears inside the bomb. Type an English word containing those letters **in exactly that order, consecutively, anywhere in the word**. For example, `SEC` matches `second`, `insect` does **not** match `SEC` unless the exact sequence appears, and `ZZ` matches `puzzle`, `pizza`, and `jazz`.
+A prompt appears inside the bomb. Type an English word containing those letters **in exactly that order, consecutively, anywhere in the word**. For example, `SEC` matches `second` and `insect` (both contain the consecutive letters `s-e-c`), while `ZZ` matches `puzzle`, `pizza`, and `jazz`.
 
 - A correct answer resets the fuse, changes the prompt, and passes the bomb.
 - Invalid, repeated, or incorrectly matched words do **not** reset the fuse.
