@@ -3,21 +3,12 @@
 // BENBOMB: independent static game. Realtime rooms require config.js.
 const $ = (id) => document.getElementById(id);
 const VIEWS = ['menu', 'lobby', 'game', 'results'];
+// A correct answer passes the bomb; only an explosion starts a new fuse.
 const SETTINGS = Object.freeze({
-  easy: {min: 10500, max: 15500},
-  classic: {min: 8000, max: 13500},
-  spicy: {min: 6000, max: 10500}
+  easy:{initial:26000,decay:.87,minimum:3000},
+  classic:{initial:22000,decay:.82,minimum:3000},
+  spicy:{initial:16000,decay:.78,minimum:3000}
 });
-const PROMPTS = {
-  one: ['e','y','a','o','i','r','s','t','n','l','u','d','p','m','c'],
-  two: ['zz','fr','th','er','in','re','an','on','ed','ar','en','al','st','or','la','bo','ch','pl','de','ba','sh','tr','br','co','ri','ki','li','po','mo','qu','ce','ve','ea','ee','oo','sp','tt','ly','te','ss','ou','ig','bl','fl','pr','wr','dr','sc','ck'],
-  long: ['sec','ing','est','ant','end','pre','ful','out','ice','app','and','ess','tion','air','art','one','ous','ear','ter','str','ple','ake','con','ent','que','tch','ght','all','ever','ring','ound','able','ment','inter','ight']
-};
-const PROMPT_WEIGHTS = {
-  easy: ['one','one','two','two','two','long'],
-  classic: ['one','two','two','two','long','long'],
-  spicy: ['two','two','long','long','long']
-};
 let wordSet = new Set(), words = [], promptMatches = new Map();
 let session = null, game = null, client = null, view = 'menu';
 let raf = null, exploding = false, soundOn = true, audioCtx = null, toastTimer = null;
@@ -107,20 +98,10 @@ async function loadDictionary() {
     wordSet = new Set(words);
     if (wordSet.size < 500) throw new Error('Dictionary is too short');
 
-    // Store counts, not huge matching-word arrays: the new dictionary has 400k+ entries.
-    // Index in batches so the page stays responsive while loading.
-    promptMatches.clear();
-    const allPatterns = [...new Set(Object.values(PROMPTS).flat())];
-    for (let i = 0; i < allPatterns.length; i++) {
-      const pattern = allPatterns[i];
-      let count = 0;
-      for (const word of words) if (word.includes(pattern)) count++;
-      promptMatches.set(pattern,count);
-      if (i % 4 === 3) {
-        $('dictionaryBadge').textContent = 'INDEXING ' + Math.round((i+1) / allPatterns.length * 100) + '%';
-        await new Promise(resolve => setTimeout(resolve,0));
-      }
-    }
+    const stats=await window.BENBOMB_PROMPTS.build(words,percent=>{
+      $('dictionaryBadge').textContent='INDEXING '+percent+'%';
+    });
+    console.info('BENBOMB word sequences generated:',stats);
     $('dictionaryBadge').textContent = wordSet.size.toLocaleString('en-US') + ' WORDS READY';
     configureButtons();
   } catch (error) {
@@ -129,34 +110,21 @@ async function loadDictionary() {
     console.error('Dictionary load failed', error);
   }
 }
-function promptCandidates(key) {
-  return PROMPTS[key].filter(pattern => {
-    const total = promptMatches.get(pattern) || 0;
-    const required = pattern === 'zz' ? 5 : pattern.length === 1 ? 50 : pattern.length === 2 ? 14 : 9;
-    const alreadyPlayed = game.used.reduce((sum,word) => sum + (word.includes(pattern) ? 1 : 0),0);
-    return total - alreadyPlayed >= required;
-  });
-}
 function nextPrompt() {
-  const difficulty = session && session.difficulty || 'classic';
-  let key = choose(PROMPT_WEIGHTS[difficulty] || PROMPT_WEIGHTS.classic);
-  let choices = promptCandidates(key).filter(s => !usedPromptHistory.slice(-6).includes(s));
-  if (!choices.length) choices = promptCandidates(key);
-  if (!choices.length) choices = ['one','two','long'].flatMap(promptCandidates);
-  const selected = choose(choices.length ? choices : ['e']);
-  usedPromptHistory.push(selected);
-  if (usedPromptHistory.length > 12) usedPromptHistory.shift();
-  return selected;
+  return window.BENBOMB_PROMPTS.choose(game?.used||[],usedPromptHistory,session?.difficulty||'classic');
 }
 function fuseDuration() {
-  const preset = SETTINGS[session && session.difficulty || 'classic'];
-  return Math.round(preset.min + Math.random() * (preset.max - preset.min));
+  const config=SETTINGS[session?.difficulty||'classic'];
+  return Math.max(config.minimum,Math.round(config.initial*Math.pow(config.decay,Math.max(0,game.round-1))));
+}
+function nextWordPrompt() {
+  game.prompt=nextPrompt();
 }
 function newFuse() {
-  game.prompt = nextPrompt();
-  game.duration = fuseDuration();
-  game.deadline = Date.now() + game.duration;
-  game.round += 1;
+  game.round+=1;
+  game.duration=fuseDuration();
+  game.deadline=Date.now()+game.duration;
+  nextWordPrompt();
 }
 function living() {return game.players.filter(p => p.lives > 0);}
 function nextLivingIndex(current) {
@@ -231,10 +199,10 @@ function submitWord(playerId,rawWord) {
   if (game.recent.length > 6) game.recent.pop();
   player.score++;
   game.turn = nextLivingIndex(game.turn);
-  newFuse();
+  nextWordPrompt();
   broadcastState();
   render();
-  feedback('Great! ' + word.toUpperCase() + ' accepted. The fuse has reset.','ok');
+  feedback('Nice! ' + word.toUpperCase() + ' accepted. The fuse keeps burning!','ok');
   playSound('success');
   if (session.kind !== 'online' || getTurnPlayer().id === session.id) $('wordInput').focus();
 }
@@ -283,7 +251,15 @@ function renderGame() {
   $('prompt').textContent = game.prompt.toUpperCase();
   $('bomb').setAttribute('aria-label','Bomb requiring the letters ' + game.prompt.toUpperCase());
   $('gameStatus').textContent = session.kind === 'solo' ? 'SOLO SURVIVAL' : session.kind === 'online' ? ('ROOM '+session.code) : 'PASS THE KEYBOARD';
-  $('playerStrip').innerHTML = game.players.map((p,i) => '<div class="player-card '+ (i===game.turn?'active ':'')+(p.lives<=0?'eliminated':'')+'"><div class="player-card-name">'+escapeHTML(p.name)+'</div><div class="player-card-hearts">'+('♥ '.repeat(p.lives)) + ('♡ '.repeat(3-p.lives))+'</div><div class="player-card-score">'+p.score+' WORD'+(p.score===1?'':'S')+'</div></div>').join('');
+  const seats=game.players.length;
+  $('arena').classList.toggle('solo-arena',seats===1);
+  $('turnPointer').style.setProperty('--pointer-angle',(360*game.turn/seats)+'deg');
+  $('playerStrip').innerHTML=game.players.map((p,i)=>{
+    const radians=(Math.PI*2*i/seats);
+    const x=(50+38*Math.sin(radians)).toFixed(2);
+    const y=(50-39*Math.cos(radians)).toFixed(2);
+    return '<div class="player-card '+(i===game.turn?'active ':'')+(p.lives<=0?'eliminated':'')+'" style="--seat-x:'+x+'%;--seat-y:'+y+'%"><div class="player-card-name">'+escapeHTML(p.name)+'</div><div class="player-card-hearts">'+('♥ '.repeat(p.lives))+('♡ '.repeat(3-p.lives))+'</div><div class="player-card-score">'+p.score+' WORD'+(p.score===1?'':'S')+'</div></div>';
+  }).join('');
   $('turnLabel').textContent = session.kind === 'solo' ? 'YOUR TURN — KEEP GOING' : (session.kind === 'online' && current.id !== session.id ? 'WAIT FOR ' : 'NOW PLAYING — ') + current.name.toUpperCase();
   $('turnHearts').textContent = '♥ '.repeat(current.lives) + '♡ '.repeat(3-current.lives);
   $('wordInput').disabled = !canType();
@@ -356,7 +332,7 @@ async function connectRoom(role,code,nickname) {
     const id = randomId();
     session = {kind:'online',host:role==='host',id,code,difficulty:'classic',channel:null};
     game = role === 'host' ? makeGame('online',[{id,name:nickname,lives:3,score:0}]) : null;
-    const channel = sb.channel('benbomb:'+code, {config:{broadcast:{self:false,ack:true}}});
+    const channel = sb.channel('bengames:benbomb:'+code, {config:{broadcast:{self:false,ack:true}}});
     session.channel = channel;
     onlineConnected = false;
     channel
