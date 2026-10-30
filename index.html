@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b14">
+  <meta name="description" content="BENBOMB — a fast, multiplayer word bomb game from BenGames.">
+  <title>BENBOMB · BenGames</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./config.js"></script>
+  <script src="./game.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="site-header">
+    <a href="https://focustap.github.io/BenGames/" id="backLink" class="back-link" aria-label="Return to BenGames">
+      <span aria-hidden="true">←</span> <span>BenGames</span>
+    </a>
+    <div class="site-brand"><span class="brand-spark">✦</span> BEN<span>BOMB</span></div>
+    <div class="header-right">
+      <span id="dictionaryBadge" class="meta-pill">LOADING WORDS</span>
+      <button id="soundToggle" class="icon-button" aria-label="Toggle sound" title="Toggle sound">♫</button>
+    </div>
+  </header>
+  <main id="app">
+    <section id="menuView" class="view menu-view">
+      <div class="hero">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> BEN GAMES PRESENTS</div>
+        <div class="hero-bomb" aria-hidden="true"><span>✹</span></div>
+        <h1>BEN<span>BOMB</span><i>!</i></h1>
+        <p>A word on your mind. A bomb in your hands. <strong>Don't be the one holding it.</strong></p>
+        <div class="micro-rules"><span>FIND THE LETTERS</span><b>→</b><span>TYPE A WORD</span><b>→</b><span>PASS THE BOMB</span></div>
+      </div>
+      <div class="mode-grid">
+        <article class="mode-card mode-main">
+          <div class="mode-icon" aria-hidden="true">⚡</div>
+          <div class="mode-label">QUICK PLAY</div>
+          <h2>Solo practice</h2>
+          <p>Beat the fuse. Build your streak. Three lives, no pressure.</p>
+          <label for="soloName">YOUR NICKNAME</label>
+          <input id="soloName" maxlength="18" placeholder="Your name" autocomplete="nickname">
+          <button id="soloButton" class="primary-button" disabled>PLAY SOLO <span>→</span></button>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon" aria-hidden="true">♟</div>
+          <div class="mode-label">SAME DEVICE</div>
+          <h2>Pass & play</h2>
+          <p>Gather around one keyboard. The bomb jumps between players.</p>
+          <label for="localNames">PLAYER NAMES (COMMA SEPARATED)</label>
+          <input id="localNames" maxlength="160" placeholder="Ben, Trin, Zach">
+          <button id="localButton" class="secondary-button" disabled>START LOCAL GAME <span>→</span></button>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon" aria-hidden="true">◎</div>
+          <div class="mode-label">ONLINE MULTIPLAYER</div>
+          <h2>Play with friends</h2>
+          <p>Host a room and share its code, or join someone else's game.</p>
+          <label for="onlineName">YOUR NICKNAME</label>
+          <input id="onlineName" maxlength="18" placeholder="Your name" autocomplete="nickname">
+          <div class="join-line">
+            <input id="roomCodeInput" maxlength="6" placeholder="ROOM CODE" aria-label="Six-character room code" autocomplete="off" spellcheck="false">
+            <button id="joinButton" class="secondary-button" disabled>JOIN</button>
+          </div>
+          <button id="hostButton" class="tertiary-button" disabled>+ CREATE A ROOM</button>
+          <p class="config-note" id="onlineStatus">Online rooms require a Supabase connection.</p>
+        </article>
+      </div>
+      <p class="footer-note">Built for fast hands and quicker thinking. <a href="https://github.com/focustap/BENBOMB" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
+    </section>
+    <section id="lobbyView" class="view narrow-view" hidden>
+      <div class="eyebrow">ONLINE PRIVATE ROOM</div>
+      <h2 class="section-heading">THE WAITING ROOM<span class="accent">.</span></h2>
+      <p class="section-subtitle">Get your friends in. Then light the fuse.</p>
+      <div class="lobby-code">
+        <span>ROOM CODE</span>
+        <div id="lobbyCode" class="code-value">------</div>
+        <button id="copyCodeButton" class="subtle-button">⧉ Copy invite</button>
+      </div>
+      <div class="panel">
+        <div class="row-between"><strong>PLAYERS <span id="lobbyCount">0/8</span></strong><span id="lobbyRole" class="meta-pill">HOST</span></div>
+        <div id="lobbyPlayers" class="lobby-players"></div>
+      </div>
+      <div class="lobby-actions">
+        <button id="beginButton" class="primary-button">LIGHT THE FUSE <span>→</span></button>
+        <button id="leaveLobbyButton" class="secondary-button">LEAVE ROOM</button>
+      </div>
+      <p id="lobbyHint" class="muted-note">Waiting for players…</p>
+    </section>
+    <section id="gameView" class="view game-view" hidden>
+      <div class="game-topbar">
+        <div><span class="overline">ROUND</span><strong id="roundNumber">01</strong></div>
+        <div class="center-status" id="gameStatus">KEEP THE BOMB MOVING</div>
+        <div><span class="overline">WORDS PLAYED</span><strong id="wordCount">00</strong></div>
+      </div>
+      <div id="playerStrip" class="player-strip"></div>
+      <div class="bomb-stage">
+        <div id="promptHelp" class="prompt-help">USE THESE LETTERS IN YOUR WORD</div>
+        <div class="fuse-flame" aria-hidden="true">✦</div>
+        <div id="bomb" class="bomb" role="img" aria-label="Bomb with required letter sequence">
+          <div class="bomb-glint"></div>
+          <div class="bomb-shadow"></div>
+          <div id="prompt" class="bomb-prompt">SEC</div>
+        </div>
+        <div class="timer-track"><div id="timerFill" class="timer-fill"></div></div>
+        <div id="timerLabel" class="timer-label">10.0s</div>
+      </div>
+      <div class="typing-area">
+        <div class="turn-prompt"><span id="turnLabel">YOUR TURN</span><span id="turnHearts">♥ ♥ ♥</span></div>
+        <form id="wordForm" autocomplete="off">
+          <input id="wordInput" type="text" maxlength="24" placeholder="TYPE A WORD…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Type an English word">
+          <button type="submit" id="sendWordButton" class="primary-button">PASS ↗</button>
+        </form>
+        <p id="feedback" class="feedback" aria-live="polite">Find a word that contains the letters above.</p>
+        <div id="lastWords" class="last-words"></div>
+      </div>
+      <button id="leaveGameButton" class="quiet-link">✕ Leave match</button>
+    </section>
+    <section id="resultsView" class="view narrow-view results-view" hidden>
+      <div class="eyebrow">THE FUSE HAS GONE OUT</div>
+      <div class="trophy-emoji" aria-hidden="true">✹</div>
+      <h2 id="resultsHeading" class="section-heading">GAME OVER<span class="accent">.</span></h2>
+      <p id="resultsSubtitle" class="section-subtitle"></p>
+      <div id="resultsPlayers" class="result-list"></div>
+      <div class="lobby-actions">
+        <button id="rematchButton" class="primary-button">PLAY AGAIN <span>↻</span></button>
+        <button id="homeButton" class="secondary-button">MAIN MENU</button>
+      </div>
+    </section>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </main>
+</body>
+</html>
