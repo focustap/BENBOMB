@@ -27,6 +27,19 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Stamp current push number
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          page = Path("index.html")
+          html = page.read_text(encoding="utf-8")
+          placeholder = "PUSH #—"
+          if html.count(placeholder) != 1:
+              raise SystemExit("Expected exactly one PUSH # placeholder")
+          page.write_text(html.replace(placeholder, f"PUSH #{os.environ['GITHUB_RUN_NUMBER']}"), encoding="utf-8")
+          PY
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
