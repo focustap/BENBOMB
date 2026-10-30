@@ -9,7 +9,7 @@ A prompt appears inside the bomb. Type an English word containing those letters 
 - A correct answer changes the prompt and passes the bomb **without resetting the fuse**.
 - Invalid, repeated, or incorrectly matched words do **not** pass the bomb.
 - The fuse continues counting down during passes. Whoever holds the bomb when it reaches zero loses a life. Each new bomb starts with a shorter fuse, but never under **3 seconds**.
-- **2,216** one-to-four-letter sequences are automatically generated from the uploaded dictionary, with familiar-word and minimum-answer filters. This count reflects the current imported file.
+- **2,216** one-to-four-letter sequences are automatically generated from the uploaded dictionary, with familiar-word and minimum-answer filters. Prompts start with high-frequency sequences found in many words. If a single bomb survives **15 correct passes**, it unlocks tougher prompts, then grows harder again after 20 and 25 passes. Each explosion starts a fresh easy prompt tier. The 2,216 count reflects the current imported file.
 - The final survivor wins. Solo mode is a score challenge.
 
 ## Game modes
