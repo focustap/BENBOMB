@@ -99,16 +99,29 @@ function configureButtons() {
 }
 async function loadDictionary() {
   try {
-    const response = await fetch('./words.txt', {cache:'force-cache'});
+    // Revalidate on each visit: GitHub Pages can otherwise keep the old tiny wordlist in cache.
+    const response = await fetch('./words.txt?v=moby-20261030', {cache:'no-cache'});
     if (!response.ok) throw new Error('HTTP '+response.status);
+    // The dictionary includes capitalized entries (e.g. Itch/Poop), so normalize case.
     words = Array.from(new Set((await response.text()).toLowerCase().split(/\s+/).filter(w => /^[a-z]{3,20}$/.test(w))));
     wordSet = new Set(words);
-    if (words.length < 500) throw new Error('Dictionary is too short');
-    const allPatterns = Object.values(PROMPTS).flat();
-    for (const prompt of allPatterns) {
-      promptMatches.set(prompt, words.filter(w => w.includes(prompt)));
+    if (wordSet.size < 500) throw new Error('Dictionary is too short');
+
+    // Store counts, not huge matching-word arrays: the new dictionary has 400k+ entries.
+    // Index in batches so the page stays responsive while loading.
+    promptMatches.clear();
+    const allPatterns = [...new Set(Object.values(PROMPTS).flat())];
+    for (let i = 0; i < allPatterns.length; i++) {
+      const pattern = allPatterns[i];
+      let count = 0;
+      for (const word of words) if (word.includes(pattern)) count++;
+      promptMatches.set(pattern,count);
+      if (i % 4 === 3) {
+        $('dictionaryBadge').textContent = 'INDEXING ' + Math.round((i+1) / allPatterns.length * 100) + '%';
+        await new Promise(resolve => setTimeout(resolve,0));
+      }
     }
-    $('dictionaryBadge').textContent = words.length.toLocaleString('en-US') + ' WORDS READY';
+    $('dictionaryBadge').textContent = wordSet.size.toLocaleString('en-US') + ' WORDS READY';
     configureButtons();
   } catch (error) {
     $('dictionaryBadge').textContent = 'WORDS OFFLINE';
@@ -118,13 +131,10 @@ async function loadDictionary() {
 }
 function promptCandidates(key) {
   return PROMPTS[key].filter(pattern => {
-    const matches = promptMatches.get(pattern) || [];
+    const total = promptMatches.get(pattern) || 0;
     const required = pattern === 'zz' ? 5 : pattern.length === 1 ? 50 : pattern.length === 2 ? 14 : 9;
-    let available = 0;
-    for (const word of matches) {
-      if (!game.used.includes(word) && ++available >= required) break;
-    }
-    return available >= required;
+    const alreadyPlayed = game.used.reduce((sum,word) => sum + (word.includes(pattern) ? 1 : 0),0);
+    return total - alreadyPlayed >= required;
   });
 }
 function nextPrompt() {
